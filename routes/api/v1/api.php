@@ -17,6 +17,11 @@ use App\Http\Controllers\API\AuthController;
 
 Route::post('user/register', [AuthController::class, 'register']);
 Route::post('user/login', [AuthController::class, 'login']);
-Route::put('user/update/{id}', [AuthController::class, 'updateUser'])->middleware('auth:api');
-Route::get('user/{id}', [AuthController::class, 'getUser'])->middleware('auth:api');
-Route::delete('user/{id}', [AuthController::class, 'deleteUser'])->middleware('auth:api');
+
+Route::prefix('user')->middleware('auth:api')->group(function (){
+    Route::put('update/{id}', [AuthController::class, 'updateUser'])->middleware('auth:api');
+    Route::get('{id}', [AuthController::class, 'getUser']);
+    Route::delete('{id}', [AuthController::class, 'deleteUser']);
+    Route::put('password/{id}', [AuthController::class, 'changePassword']);
+});
+

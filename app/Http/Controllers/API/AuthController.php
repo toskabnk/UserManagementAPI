@@ -4,6 +4,7 @@ namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Rules\NoSamePassword;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
@@ -87,7 +88,7 @@ class AuthController extends Controller
             'surname' => 'sometimes|required|max:255',
             'birth_date' => 'sometimes|required|date_format:Y-m-d|before:today|after:1900-01-01',
             'email' => 'sometimes|required|email',
-            'password' => 'required|confirmed',
+            'password' => 'required',
             //Comprueba que el email sea unico, pero que ignore el del usuario
             Rule::unique('users')->ignore($user->id)
 
@@ -105,10 +106,15 @@ class AuthController extends Controller
         $data = $request->all();
 
         //Comprueba que la contrasea sea la del usuario para actualizar los datos
-        if(Hash::check($data['password'], $user->passoword)){
+        if(!Hash::check($data['password'], $user->password)){
             return response()->json(['message' => 'Password incorrect'],401);
         }
         
+        //Eliminamos el parametro password para no actualizar la contraseña
+        unset($data['password']);
+        unset($data['password_confirmation']);
+        
+        //Actualizamos el usuario
         $user->update($data);
 
         return response([
@@ -122,17 +128,15 @@ class AuthController extends Controller
         //Conseguimos el usuario de la BD
         $user = User::select('name', 'surname', 'email')->where('id',$id)->first();
 
-        $userDetails=User::find($id);
-
         //Comprobamos si existe
         if (!$user) {
             return response()->json(['message' => 'User not found'], 404);
         }
 
         return response()->json([
-            'name' => $userDetails->name,
-            'surname' => $userDetails->surname,
-            'email' => $userDetails->email,
+            'name' => $user->name,
+            'surname' => $user->surname,
+            'email' => $user->email,
             ]);
     }
 
@@ -140,8 +144,6 @@ class AuthController extends Controller
     {
         //Conseguimos el usuario de la BD
         $user = User::select('name', 'surname', 'email')->where('id',$id)->first();
-
-        $userDetails=User::find($id);
 
         //Comprobamos si existe
         if (!$user) {
@@ -152,5 +154,51 @@ class AuthController extends Controller
         User::where('id', $id)->delete();
 
         return response()->noContent();
+    }
+
+    public function changePassword(Request $request, $id)
+    {
+        //Conseguimos el usuario de la BD
+        $user=User::find($id);
+        $data = $request->all();
+
+        //Comprobamos si existe
+        if (!$user) {
+            return response()->json(['message' => 'User not found'], 404);
+        }
+
+        //Reglas de validacion
+        $rules = [
+            'oldPassword' => 'required',
+            'newPassword' => 'required|confirmed|',
+            'newPassword' => new NoSamePassword
+        ];
+
+        //Comprueba que la contrasea sea la del usuario para actualizar los datos
+        if(!Hash::check($data['oldPassword'], $user->password)){
+            return response()->json(['message' => 'Password incorrect'],401);
+        }
+
+        //Validacion del parametro $request, con las reglas y los mensajes personalizados
+        $validation = Validator::make($request->all(),$rules, config('custom_validation_messages'));
+
+        if($validation->fails())
+        {
+            return response()->json([
+                'message' => $validation->errors(),
+            ],422);
+        }
+
+        //Actualizamos la contraseña
+        $user->update([
+            'password' => Hash::make($request->newPassword)
+        ]);
+
+
+        return response([
+            'userData' => $user,
+            'password' => $user->password,
+            'request' => $request->all()
+        ],200);
     }
 }
