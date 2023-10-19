@@ -10,5 +10,6 @@ return [
     'email' => 'You must enter a valid email.',
     'unique' => 'The :attribute is already in use.',
     'required' => ':attribute is required.',
-    'confirmed' => 'Passwords must be the same'
+    'confirmed' => 'Passwords must be the same',
+    'min' => ':attribute min length is 3 characters.'
     ];

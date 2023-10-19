@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
+use App\Models\Role;
 use App\Models\User;
 use App\Rules\NoSamePassword;
 use Illuminate\Http\Request;
@@ -143,7 +144,7 @@ class AuthController extends Controller
     public function deleteUser($id)
     {
         //Conseguimos el usuario de la BD
-        $user = User::select('name', 'surname', 'email')->where('id',$id)->first();
+        $user = User::find($id);
 
         //Comprobamos si existe
         if (!$user) {
@@ -199,6 +200,99 @@ class AuthController extends Controller
             'userData' => $user,
             'password' => $user->password,
             'request' => $request->all()
+        ],200);
+    }
+
+    public function addRole($userID, $roleID)
+    {
+        $rolesCurrentUser = Auth::user();
+        $roles = $rolesCurrentUser->roles;
+
+        $adminFound = false;
+
+        foreach ($roles as $role) {
+            if ($role->name === 'Admin') {
+                $adminFound = true;
+                break; // Sal del bucle si se encuentra el rol "Admin"
+            }
+        }
+
+        if (!$adminFound) {
+            return response()->json([
+                'message' => 'You don\'t have the right permissions.',
+            ], 401);
+        }
+
+        $user = User::find($userID);
+        if(!$user){
+            return response()->json(['message' => 'User not found'], 404);
+        }
+
+        $role = Role::find($roleID);
+        if(!$role){
+            return response()->json(['message' => 'Role not found'], 404);
+        }
+
+        foreach($user->roles as $userRoles){
+            if($userRoles->name === $role->name){
+                return response()->json(['message' => 'This user have this role'], 403);
+            }
+        }
+        
+
+        $user->roles()->attach($roleID);
+
+        return response([
+            'message' => 'Role added to the user succesffully'
+        ],200);
+    }
+
+    public function deleteRole($userID, $roleID)
+    {
+        $rolesCurrentUser = Auth::user();
+        $roles = $rolesCurrentUser->roles;
+
+        $adminFound = false;
+
+        foreach ($roles as $role) {
+            if ($role->name === 'Admin') {
+                $adminFound = true;
+                break; // Sal del bucle si se encuentra el rol "Admin"
+            }
+        }
+
+        if (!$adminFound) {
+            return response()->json([
+                'message' => 'You don\'t have the right permissions.',
+            ], 401);
+        }
+
+        $user = User::find($userID);
+        if(!$user){
+            return response()->json(['message' => 'User not found'], 404);
+        }
+
+        $role = Role::find($roleID);
+        if(!$role){
+            return response()->json(['message' => 'Role not found'], 404);
+        }
+
+        $findRole = false;
+        foreach($user->roles as $userRoles){
+            if($userRoles->name === $role->name){
+                $findRole = true;
+                break;
+            }
+        }
+
+        if(!$findRole){
+            return response()->json(['message' => 'User dont have this role'], 404);
+        }
+
+        $user->roles()->detach($roleID);
+
+        return response([
+            'message' => 'Role removed from the user succesffully'
         ],200);
     }
 }
