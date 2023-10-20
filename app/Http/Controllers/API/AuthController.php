@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
+use App\Models\Organization;
 use App\Models\Role;
 use App\Models\User;
 use App\Rules\NoSamePassword;
@@ -247,7 +248,7 @@ class AuthController extends Controller
         ],200);
     }
 
-    public function deleteRole($userID, $roleID)
+    public function removeRole($userID, $roleID)
     {
         $rolesCurrentUser = Auth::user();
         $roles = $rolesCurrentUser->roles;
@@ -293,6 +294,96 @@ class AuthController extends Controller
 
         return response([
             'message' => 'Role removed from the user succesffully'
+        ],200);
+    }
+
+    public function addOrganization($userID, $organizationID)
+    {
+        $rolesCurrentUser = Auth::user();
+        $roles = $rolesCurrentUser->roles;
+
+        $adminFound = false;
+
+        foreach ($roles as $role) {
+            if ($role->name === 'Admin') {
+                $adminFound = true;
+                break; // Sal del bucle si se encuentra el rol "Admin"
+            }
+        }
+
+        if (!$adminFound) {
+            return response()->json([
+                'message' => 'You don\'t have the right permissions.',
+            ], 401);
+        }
+
+        $user = User::find($userID);
+        if(!$user){
+            return response()->json(['message' => 'User not found'], 404);
+        }
+        $org = Organization::find($organizationID);
+        if(!$org){
+            return response()->json(['message' => 'Organization not found'], 404);
+        }
+
+        foreach($user->organizations as $userOrgs){
+            if($userOrgs->name === $org->name){
+                return response()->json(['message' => 'This user already have this organization'], 403);
+            }
+        }
+
+        $user->organizations()->attach($organizationID);
+
+        return response([
+            'message' => 'Organization added to the user succesffully'
+        ],200);
+    }
+
+    public function removeOrganization($userID, $organizationID)
+    {
+        $rolesCurrentUser = Auth::user();
+        $roles = $rolesCurrentUser->roles;
+
+        $adminFound = false;
+
+        foreach ($roles as $role) {
+            if ($role->name === 'Admin') {
+                $adminFound = true;
+                break; // Sal del bucle si se encuentra el rol "Admin"
+            }
+        }
+
+        if (!$adminFound) {
+            return response()->json([
+                'message' => 'You don\'t have the right permissions.',
+            ], 401);
+        }
+
+        $user = User::find($userID);
+        if(!$user){
+            return response()->json(['message' => 'User not found'], 404);
+        }
+        $org = Organization::find($organizationID);
+        if(!$org){
+            return response()->json(['message' => 'Organization not found'], 404);
+        }
+
+        $findOrg = false;
+        foreach($user->organizations as $userOrg){
+            if($userOrg->name === $org->name){
+                $findRole = true;
+                break;
+            }
+        }
+
+        if(!$findOrg){
+            return response()->json(['message' => 'User dont have this organization'], 404);
+        }
+
+        $user->organizations()->detach($organizationID);
+
+        return response([
+            'message' => 'Organization removed from the user succesffully'
         ],200);
     }
 }

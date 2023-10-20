@@ -34,7 +34,8 @@ class User extends Authenticatable
     protected $hidden = [
         'password',
         'remember_token',
-        'pivot'
+        'pivot',
+        'organizations'
     ];
 
     /**
@@ -50,5 +51,10 @@ class User extends Authenticatable
     //Relacion n:n
     public function roles(): BelongsToMany{
         return $this->belongsToMany(Role::class);
+    }
+
+    //Relacion n:n
+    public function organizations(): BelongsToMany{
+        return $this->belongsToMany(Organization::class);
     }
 }
