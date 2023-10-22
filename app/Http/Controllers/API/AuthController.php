@@ -7,6 +7,7 @@ use App\Models\Organization;
 use App\Models\Role;
 use App\Models\User;
 use App\Rules\NoSamePassword;
+use App\Utils\CheckPermission;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
@@ -14,7 +15,7 @@ use Illuminate\Validation\Rule;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Auth;
 
-class AuthController extends Controller
+class AuthController extends ResponseController
 {
     public function register(Request $request)
     {
@@ -30,48 +31,60 @@ class AuthController extends Controller
         //Validacion del parametro $request, con las reglas y los mensajes personalizados
         $validation = Validator::make($request->all(),$rules, config('custom_validation_messages'));
 
-        //
+        //Si la validacion falla, respondemos con los errores
         if($validation->fails())
         {
-            return response()->json([
-                'message' => $validation->errors(),
-            ],422);
+            return $this->respondUnprocessableEntity('Validation errors', $validation->errors());
         }
 
+        //Guardamos los datos validados
         $userData = $validation->validated();
         
+        //Guardamos la contraseña hasheada
         $userData['password'] = Hash::make($request->password);
 
+        //Creamos el usuario
         $user = User::create($userData);
 
+        //Creamos el token de acceso
         $accessToken = $user->createToken('authToken')->accessToken;
 
-        return response([
-            'message' => $user,
-            'access_token' => $accessToken
-        ],201);
+        //Creamos la estructura de la respuesta
+        $response = [
+            'message' => 'User created.',
+            'token' => $accessToken
+        ];
+
+        //Enviamos la respuesta con los datos
+        return $this->respondSuccess($response, 201);
     }
 
     public function login(Request $request)
     {
+        //Validamos los datos
         $loginData = $request->validate([
             'email' => 'email|required',
             'password' => 'required'
         ]);
 
+        //Comprobamos las credenciales
         if(!auth()->attempt($loginData)) {
-            return response([
-                'message' => 'Invalid Credentials'
-            ]);
+            return $this->respondUnauthorized('Invalid credentials.');
         }
         
+        //Consiguimos el usuario y creamos el token
         /** @var \App\Models\User */
         $currentUser = Auth::user();
         $accessToken = $currentUser->createToken('authToken')->accessToken;
-        return response([
+
+        //Creamos la estructura de la respuesta
+        $response = [
             'user' => $currentUser,
-            'accessToken' => $accessToken
-        ]);
+            'token' => $accessToken
+        ];
+
+        //Enviamos la respuesta con los datos
+        return $this->respondSuccess($response, 200);
     }
 
     public function updateUser(Request $request, $id)
@@ -81,7 +94,7 @@ class AuthController extends Controller
 
         //Comprobamos si existe
         if (!$user) {
-            return response()->json(['message' => 'User not found'], 404);
+            return $this->respondNotFound('User not found');
         }
 
         //Reglas de validacion
@@ -102,14 +115,14 @@ class AuthController extends Controller
         //Comprobamos el resultado de la validacion
         if($validation->fails())
         {
-            return response()->json(['message' => $validation->errors()],422);
+            return $this->respondUnprocessableEntity('Validation errors', $validation->errors());
         }
 
         $data = $request->all();
 
         //Comprueba que la contrasea sea la del usuario para actualizar los datos
         if(!Hash::check($data['password'], $user->password)){
-            return response()->json(['message' => 'Password incorrect'],401);
+            return $this->respondUnauthorized('Invalid credentials.');
         }
         
         //Eliminamos el parametro password para no actualizar la contraseña
@@ -119,27 +132,25 @@ class AuthController extends Controller
         //Actualizamos el usuario
         $user->update($data);
 
-        return response([
-            'userData' => $user,
-            'request' => $request->all()
-        ],200);
+        $response = [
+            'message' => 'User modified.',
+            'user' => $user
+        ];
+
+        return $this->respondSuccess($response);
     }
 
     public function getUser($id)
     {
         //Conseguimos el usuario de la BD
-        $user = User::select('name', 'surname', 'email')->where('id',$id)->first();
+        $user = User::where('id',$id)->first();
 
         //Comprobamos si existe
         if (!$user) {
-            return response()->json(['message' => 'User not found'], 404);
+            return $this->respondNotFound('User not found.');
         }
 
-        return response()->json([
-            'name' => $user->name,
-            'surname' => $user->surname,
-            'email' => $user->email,
-            ]);
+        return $this->respondSuccess(['user' => $user]);
     }
 
     public function deleteUser($id)
@@ -149,7 +160,7 @@ class AuthController extends Controller
 
         //Comprobamos si existe
         if (!$user) {
-            return response()->json(['message' => 'User not found'], 404);
+            return $this->respondNotFound('User not found.');
         }
 
         //Borramos el usuario de la BD
@@ -166,7 +177,7 @@ class AuthController extends Controller
 
         //Comprobamos si existe
         if (!$user) {
-            return response()->json(['message' => 'User not found'], 404);
+            return $this->respondNotFound('User not found.');
         }
 
         //Reglas de validacion
@@ -178,7 +189,7 @@ class AuthController extends Controller
 
         //Comprueba que la contrasea sea la del usuario para actualizar los datos
         if(!Hash::check($data['oldPassword'], $user->password)){
-            return response()->json(['message' => 'Password incorrect'],401);
+            return $this->respondUnauthorized('Invalid credentials.');
         }
 
         //Validacion del parametro $request, con las reglas y los mensajes personalizados
@@ -186,9 +197,7 @@ class AuthController extends Controller
 
         if($validation->fails())
         {
-            return response()->json([
-                'message' => $validation->errors(),
-            ],422);
+            return $this->respondUnprocessableEntity('Validation errors', $validation->errors());
         }
 
         //Actualizamos la contraseña
@@ -196,56 +205,43 @@ class AuthController extends Controller
             'password' => Hash::make($request->newPassword)
         ]);
 
-
-        return response([
-            'userData' => $user,
-            'password' => $user->password,
-            'request' => $request->all()
-        ],200);
+        return $this->respondSuccess(['message' => 'Password changed successfully.']);
     }
 
     public function addRole($userID, $roleID)
     {
+        //Conseguimos el usuario actual y sus roles
         $rolesCurrentUser = Auth::user();
         $roles = $rolesCurrentUser->roles;
 
-        $adminFound = false;
-
-        foreach ($roles as $role) {
-            if ($role->name === 'Admin') {
-                $adminFound = true;
-                break; // Sal del bucle si se encuentra el rol "Admin"
-            }
+        //Comprobamos si tiene los permisos necesarios
+        if(!CheckPermission::checkAdminPermision($roles)){
+            return $this->respondUnauthorized('You don\'t have the right permissions.');
         }
 
-        if (!$adminFound) {
-            return response()->json([
-                'message' => 'You don\'t have the right permissions.',
-            ], 401);
-        }
-
+        //Consguimos al usuario por ID
         $user = User::find($userID);
         if(!$user){
-            return response()->json(['message' => 'User not found'], 404);
+            return $this->respondNotFound('User not found.');
         }
 
+        //Conseguimos el rol pod ID
         $role = Role::find($roleID);
         if(!$role){
-            return response()->json(['message' => 'Role not found'], 404);
+            return $this->respondNotFound('Role not found.');
         }
 
+        //Buscamos si el rol que intenta añadir ya lo tiene
         foreach($user->roles as $userRoles){
             if($userRoles->name === $role->name){
-                return response()->json(['message' => 'This user have this role'], 403);
+                return $this->respondForbidden('This user have this role.');
             }
         }
         
-
+        //Añadimos el rol a el usuario
         $user->roles()->attach($roleID);
 
-        return response([
-            'message' => 'Role added to the user succesffully'
-        ],200);
+        return $this->respondSuccess(['message' => 'Role added to the user.']);
     }
 
     public function removeRole($userID, $roleID)
@@ -253,29 +249,19 @@ class AuthController extends Controller
         $rolesCurrentUser = Auth::user();
         $roles = $rolesCurrentUser->roles;
 
-        $adminFound = false;
-
-        foreach ($roles as $role) {
-            if ($role->name === 'Admin') {
-                $adminFound = true;
-                break; // Sal del bucle si se encuentra el rol "Admin"
-            }
-        }
-
-        if (!$adminFound) {
-            return response()->json([
-                'message' => 'You don\'t have the right permissions.',
-            ], 401);
+        //Comprobamos si tiene los permisos necesarios
+        if(!CheckPermission::checkAdminPermision($roles)){
+            return $this->respondUnauthorized('You don\'t have the right permissions.');
         }
 
         $user = User::find($userID);
         if(!$user){
-            return response()->json(['message' => 'User not found'], 404);
+            return $this->respondNotFound('User not found.');
         }
 
         $role = Role::find($roleID);
         if(!$role){
-            return response()->json(['message' => 'Role not found'], 404);
+            return $this->respondNotFound('Role not found.');
         }
 
         $findRole = false;
@@ -287,14 +273,12 @@ class AuthController extends Controller
         }
 
         if(!$findRole){
-            return response()->json(['message' => 'User dont have this role'], 404);
+            return $this->respondNotFound('The user don\'t have this role.');
         }
 
         $user->roles()->detach($roleID);
 
-        return response([
-            'message' => 'Role removed from the user succesffully'
-        ],200);
+        return $this->respondSuccess(['message' => 'Role removed from the user.']);
     }
 
     public function addOrganization($userID, $organizationID)
@@ -302,41 +286,30 @@ class AuthController extends Controller
         $rolesCurrentUser = Auth::user();
         $roles = $rolesCurrentUser->roles;
 
-        $adminFound = false;
-
-        foreach ($roles as $role) {
-            if ($role->name === 'Admin') {
-                $adminFound = true;
-                break; // Sal del bucle si se encuentra el rol "Admin"
-            }
-        }
-
-        if (!$adminFound) {
-            return response()->json([
-                'message' => 'You don\'t have the right permissions.',
-            ], 401);
+        //Comprobamos si tiene los permisos necesarios
+        if(!CheckPermission::checkAdminPermision($roles)){
+            return $this->respondUnauthorized('You don\'t have the right permissions.');
         }
 
         $user = User::find($userID);
         if(!$user){
-            return response()->json(['message' => 'User not found'], 404);
+            return $this->respondNotFound('User not found.');
         }
         $org = Organization::find($organizationID);
         if(!$org){
-            return response()->json(['message' => 'Organization not found'], 404);
+            return $this->respondNotFound('Organization not found.');
         }
 
         foreach($user->organizations as $userOrgs){
             if($userOrgs->name === $org->name){
-                return response()->json(['message' => 'This user already have this organization'], 403);
+                return $this->respondForbidden('This user already have this organization.');
             }
         }
 
         $user->organizations()->attach($organizationID);
 
-        return response([
-            'message' => 'Organization added to the user succesffully'
-        ],200);
+        return $this->respondSuccess(['message' => 'Organization added to the user.']);
+
     }
 
     public function removeOrganization($userID, $organizationID)
@@ -344,28 +317,19 @@ class AuthController extends Controller
         $rolesCurrentUser = Auth::user();
         $roles = $rolesCurrentUser->roles;
 
-        $adminFound = false;
-
-        foreach ($roles as $role) {
-            if ($role->name === 'Admin') {
-                $adminFound = true;
-                break; // Sal del bucle si se encuentra el rol "Admin"
-            }
-        }
-
-        if (!$adminFound) {
-            return response()->json([
-                'message' => 'You don\'t have the right permissions.',
-            ], 401);
+        //Comprobamos si tiene los permisos necesarios
+        if(!CheckPermission::checkAdminPermision($roles)){
+            return $this->respondUnauthorized('You don\'t have the right permissions.');
         }
 
         $user = User::find($userID);
         if(!$user){
-            return response()->json(['message' => 'User not found'], 404);
+            return $this->respondNotFound('User not found.');
         }
+
         $org = Organization::find($organizationID);
         if(!$org){
-            return response()->json(['message' => 'Organization not found'], 404);
+            return $this->respondNotFound('Organization not found.');
         }
 
         $findOrg = false;
@@ -377,13 +341,11 @@ class AuthController extends Controller
         }
 
         if(!$findOrg){
-            return response()->json(['message' => 'User dont have this organization'], 404);
+            return $this->respondNotFound('User don\'t have this organization.');
         }
 
         $user->organizations()->detach($organizationID);
-
-        return response([
-            'message' => 'Organization removed from the user succesffully'
-        ],200);
+        
+        return $this->respondSuccess(['message' => 'Organization removed from the user']);
     }
 }

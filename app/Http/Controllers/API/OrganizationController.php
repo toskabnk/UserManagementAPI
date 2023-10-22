@@ -5,6 +5,7 @@ namespace App\Http\Controllers\API;
 use App\Http\Controllers\Controller;
 use App\Models\Organization;
 use App\Models\User;
+use App\Utils\CheckPermission;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
@@ -25,9 +26,7 @@ class OrganizationController extends Controller
          //Comprobamos el resultado de la validacion
         if($validation->fails())
         {
-            return response()->json([
-                'message' => $validation->errors(),
-            ],422);
+            return $this->respondUnprocessableEntity('Validation errors', $validation->errors());
         }
 
         $orgData = $validation->validated();
@@ -36,26 +35,12 @@ class OrganizationController extends Controller
         $rolesCurrentUser = Auth::user();
         $roles = $rolesCurrentUser->roles;
 
-        $adminFound = false;
-
-        foreach ($roles as $role) {
-            if ($role->name === 'Admin') {
-                $adminFound = true;
-                break; // Sal del bucle si se encuentra el rol "Admin"
-            }
+        //Comprobamos si tiene los permisos necesarios
+        if(!CheckPermission::checkAdminPermision($roles)){
+            return $this->respondUnauthorized('You don\'t have the right permissions.');
         }
 
-        if (!$adminFound) {
-            return response()->json([
-                'message' => 'You don\'t have the right permissions.',
-            ], 401);
-        }
-
-        $org = Organization::create($orgData);
-        return response([
-            'message' => 'Organization created successfully.',
-            'organization' => $org
-        ]);
+        return $this->respondSuccess(['message' => 'Organization created.'], 201);
     }
 
     public function view($id)
@@ -64,21 +49,17 @@ class OrganizationController extends Controller
 
         //Si no lo encuentra mandamos un 404
         if(!$org){
-            return response()->json(['message' => 'Organization not found'], 404);
+            return $this->respondNotFound('Organization not found.');
         }
 
-        return response([
-            'organization' => $org
-        ]);
+        return $this->respondSuccess(['organization' => $org]);
     }
 
     public function viewAll(Request $request){
         //Consigue todos los roles de la BD
         $org = Organization::all();
 
-        return response([
-            'organization' => $org
-        ]);
+        return $this->respondSuccess(['organization' => $org]);
     }
 
     public function update(Request $request, $id)
@@ -87,7 +68,7 @@ class OrganizationController extends Controller
 
         //Si no lo encuentra mandamos un 404
         if(!$org){
-            return response()->json(['message' => 'Role not found'], 404);
+            return $this->respondNotFound('Organization not found.');
         }
 
         //Reglas de validacion
@@ -102,74 +83,52 @@ class OrganizationController extends Controller
         //Comprobamos el resultado de la validacion
         if($validation->fails())
         {
-            return response()->json([
-                'message' => $validation->errors(),
-            ],422);
+            return $this->respondUnprocessableEntity('Validation errors', $validation->errors());
         }
 
         $orgData = $validation->validated();
 
-        /** @var \App\Models\User */
+        //Conseguimos el usuario actual y sus roles
         $rolesCurrentUser = Auth::user();
         $roles = $rolesCurrentUser->roles;
 
-        $adminFound = false;
-
-        foreach ($roles as $role) {
-            if ($role->name === 'Admin') {
-                $adminFound = true;
-                break; // Sal del bucle si se encuentra el rol "Admin"
-            }
-        }
-
-        if (!$adminFound) {
-            return response()->json([
-                'message' => 'You don\'t have the right permissions.',
-            ], 401);
+        //Comprobamos si tiene los permisos necesarios
+        if(!CheckPermission::checkAdminPermision($roles)){
+            return $this->respondUnauthorized('You don\'t have the right permissions.');
         }
 
         $org->update($orgData);
 
-        return response([
-            'message' => 'Organization edited succesfully.',
+        $response = [
+            'message' => 'Organization modified.',
             'organization' => $org
-        ]);
+        ];
+
+        return $this->respondSuccess($response);
     }
 
     public function remove($id)
     {
-        /** @var \App\Models\User */
+        //Conseguimos el usuario actual y sus roles
         $rolesCurrentUser = Auth::user();
         $roles = $rolesCurrentUser->roles;
 
-        $adminFound = false;
-
-        foreach ($roles as $role) {
-            if ($role->name === 'Admin') {
-                $adminFound = true;
-                break; // Sal del bucle si se encuentra el rol "Admin"
-            }
-        }
-
-        if (!$adminFound) {
-            return response()->json([
-                'message' => 'You don\'t have the right permissions.',
-            ], 401);
+        //Comprobamos si tiene los permisos necesarios
+        if(!CheckPermission::checkAdminPermision($roles)){
+            return $this->respondUnauthorized('You don\'t have the right permissions.');
         }
 
         $org = Organization::find($id);
 
         //Si no lo encuentra mandamos un 404
         if(!$org){
-            return response()->json(['message' => 'Organization not found'], 404);
+            return $this->respondNotFound('Organization not found.');
         }
 
 
         $org->delete();
 
-        return response([
-            'message' => 'Role deleted successfully.'
-        ]);
+        return $this->respondSuccess(['message' => 'Role deleted successfully.']);
     }
 
     public function getUserFromOrg($id){
@@ -177,15 +136,17 @@ class OrganizationController extends Controller
 
         //Si no lo encuentra mandamos un 404
         if(!$org){
-            return response()->json(['message' => 'Organization not found'], 404);
+            return $this->respondNotFound('Organization not found.');
         }
 
         $users = $org->users;
 
-        return response([
+        $response = [
             'organization' => $org,
             'users' => $users
-        ]);
+        ];
+
+        return $this->respondSuccess($response);
     }
 
     public function getOrgFromUser($id){
@@ -193,14 +154,16 @@ class OrganizationController extends Controller
 
         //Si no lo encuentra mandamos un 404
         if(!$user){
-            return response()->json(['message' => 'User not found'], 404);
+            return $this->respondNotFound('User not found.');
         }
 
         $orgs = $user->organizations;
 
-        return response([
+        $response = [
             'user' => $user,
             'organizations' => $orgs
-        ]);
+        ];
+
+        return $this->respondSuccess($response);
     }
 }

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\API;
 use App\Http\Controllers\Controller;
 use App\Models\Role;
 use App\Models\User;
+use App\Utils\CheckPermission;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
@@ -25,39 +26,23 @@ class RoleController extends Controller
          //Comprobamos el resultado de la validacion
         if($validation->fails())
         {
-            return response()->json([
-                'message' => $validation->errors(),
-            ],422);
+            return $this->respondUnprocessableEntity('Validation errors', $validation->errors());
         }
 
         $roleData = $validation->validated();
 
-        /** @var \App\Models\User */
+        //Conseguimos el usuario actual y sus roles
         $rolesCurrentUser = Auth::user();
         $roles = $rolesCurrentUser->roles;
 
-        $adminFound = false;
-
-        foreach ($roles as $role) {
-            if ($role->name === 'Admin') {
-                $adminFound = true;
-                break; // Sal del bucle si se encuentra el rol "Admin"
-            }
+        //Comprobamos si tiene los permisos necesarios
+        if(!CheckPermission::checkAdminPermision($roles)){
+            return $this->respondUnauthorized('You don\'t have the right permissions.');
         }
-
-        if (!$adminFound) {
-            return response()->json([
-                'message' => 'You don\'t have the right permissions.',
-            ], 401);
-        }
-
 
         $role = Role::create($roleData);
 
-        return response([
-            'message' => 'Role created successfully.',
-            'role' => $role
-        ]);
+        return $this->respondSuccess(['message' => 'Role created.'], 201);
     }
 
     public function view($id){
@@ -66,21 +51,17 @@ class RoleController extends Controller
 
         //Si no lo encuentra mandamos un 404
         if(!$role){
-            return response()->json(['message' => 'Role not found'], 404);
+            return $this->respondNotFound('Role not found.');
         }
 
-        return response([
-            'role' => $role
-        ]);
+        return $this->respondSuccess(['role' => $role]);
     }
 
     public function viewAll(Request $request){
         //Consigue todos los roles de la BD
         $role = Role::all();
 
-        return response([
-            'roles' => $role
-        ]);
+        return $this->respondSuccess(['role' => $role]);
     }
 
     public function update(Request $request, $id)
@@ -90,7 +71,7 @@ class RoleController extends Controller
 
         //Si no lo encuentra mandamos un 404
         if(!$role){
-            return response()->json(['message' => 'Role not found'], 404);
+            return $this->respondNotFound('Role not found.');
         }
 
         $rules = [
@@ -103,38 +84,23 @@ class RoleController extends Controller
         //Comprobamos el resultado de la validacion
         if($validation->fails())
         {
-            return response()->json([
-                'message' => $validation->errors(),
-            ],422);
+            return $this->respondUnprocessableEntity('Validation errors', $validation->errors());
         }
 
-        /** @var \App\Models\User */
+        //Conseguimos el usuario actual y sus roles
         $rolesCurrentUser = Auth::user();
         $roles = $rolesCurrentUser->roles;
 
-        $adminFound = false;
-
-        foreach ($roles as $role) {
-            if ($role->name === 'Admin') {
-                $adminFound = true;
-                break; // Sal del bucle si se encuentra el rol "Admin"
-            }
-        }
-
-        if (!$adminFound) {
-            return response()->json([
-                'message' => 'You don\'t have the right permissions.',
-            ], 401);
+        //Comprobamos si tiene los permisos necesarios
+        if(!CheckPermission::checkAdminPermision($roles)){
+            return $this->respondUnauthorized('You don\'t have the right permissions.');
         }
 
         $role->update([
             'name' => $request->name
         ]);
 
-        return response([
-            'message' => 'Role edited succesfully.',
-            'role' => $role
-        ]);
+        return $this->respondSuccess(['message' => 'Role edited.']);
     }
 
     public function remove($id)
@@ -144,53 +110,31 @@ class RoleController extends Controller
 
         //Si no lo encuentra mandamos un 404
         if(!$role){
-            return response()->json(['message' => 'Role not found'], 404);
+            return $this->respondNotFound('Role not found.');
         }
 
-        /** @var \App\Models\User */
+        //Conseguimos el usuario actual y sus roles
         $rolesCurrentUser = Auth::user();
         $roles = $rolesCurrentUser->roles;
 
-        $adminFound = false;
-
-        foreach ($roles as $role) {
-            if ($role->name === 'Admin') {
-                $adminFound = true;
-                break; // Sal del bucle si se encuentra el rol "Admin"
-            }
-        }
-
-        if (!$adminFound) {
-            return response()->json([
-                'message' => 'You don\'t have the right permissions.',
-            ], 401);
+        //Comprobamos si tiene los permisos necesarios
+        if(!CheckPermission::checkAdminPermision($roles)){
+            return $this->respondUnauthorized('You don\'t have the right permissions.');
         }
 
         $role->delete();
 
-        return response([
-            'message' => 'Role deleted successfully.'
-        ]);
+        return $this->respondSuccess(['message' => 'Role deleted.']);
     }
 
     public function getUsersFromRole($id){
-        /** @var \App\Models\User */
+        //Conseguimos el usuario actual y sus roles
         $rolesCurrentUser = Auth::user();
         $roles = $rolesCurrentUser->roles;
 
-        $adminFound = false;
-
-        foreach ($roles as $role) {
-            if ($role->name === 'Admin') {
-                $adminFound = true;
-                break; // Sal del bucle si se encuentra el rol "Admin"
-            }
-        }
-
-        if (!$adminFound) {
-            return response()->json([
-                'message' => 'You don\'t have the right permissions.',
-            ], 401);
+        //Comprobamos si tiene los permisos necesarios
+        if(!CheckPermission::checkAdminPermision($roles)){
+            return $this->respondUnauthorized('You don\'t have the right permissions.');
         }
 
         //Conseguimos el rol de la BD
@@ -198,14 +142,16 @@ class RoleController extends Controller
 
         //Si no lo encuentra mandamos un 404
         if(!$role){
-            return response()->json(['message' => 'Role not found'], 404);
+            return $this->respondNotFound('Role not found.');
         }
 
         $users = $role->users;
 
-        return response([
+        $reponse = [
             'role' => $role,
             'users' => $users
-        ]);
+        ];
+
+        return $this->respondSuccess($reponse);
     }
 }
