@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
 
 
-class RoleController extends Controller
+class RoleController extends ResponseController
 {
     public function create(Request $request)
     {
@@ -146,6 +146,7 @@ class RoleController extends Controller
         }
 
         $users = $role->users;
+        unset($role['users']);
 
         $reponse = [
             'role' => $role,

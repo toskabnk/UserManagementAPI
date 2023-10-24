@@ -10,7 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
 
-class OrganizationController extends Controller
+class OrganizationController extends ResponseController
 {
     public function create(Request $request)
     {
@@ -140,6 +140,7 @@ class OrganizationController extends Controller
         }
 
         $users = $org->users;
+        unset($org['users']);
 
         $response = [
             'organization' => $org,
@@ -158,6 +159,7 @@ class OrganizationController extends Controller
         }
 
         $orgs = $user->organizations;
+        unset($user['organizations']);
 
         $response = [
             'user' => $user,

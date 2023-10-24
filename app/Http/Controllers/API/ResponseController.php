@@ -42,9 +42,9 @@ class ResponseController extends Controller
         return $this->respondError($message, 403);
     }
 
-    protected function respondNotFound($message = 'Not Found')
+    protected function respondNotFound($message = 'Not Found', $errors = '')
     {
-        return $this->respondError($message, 404);
+        return $this->respondError($message, 404, $errors);
     }
 
     protected function respondUnprocessableEntity($message = 'Unprocessable Entity', $errors = '')

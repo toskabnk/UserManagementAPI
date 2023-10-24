@@ -17,7 +17,7 @@ class Organization extends Model
     ];
 
     protected $hidden = [
-        'users'
+        'pivot',
     ];
 
     //Relacion n:n

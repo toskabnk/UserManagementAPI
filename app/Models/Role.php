@@ -15,7 +15,7 @@ class Role extends Model
     ];
 
     protected $hidden = [
-        'users'
+        'pivot'
     ];
 
     //Relacion n:n

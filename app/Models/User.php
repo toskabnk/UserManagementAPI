@@ -24,6 +24,8 @@ class User extends Authenticatable
         'birth_date',
         'email',
         'password',
+        'roles',
+        'organizations',
     ];
 
     /**
@@ -35,7 +37,6 @@ class User extends Authenticatable
         'password',
         'remember_token',
         'pivot',
-        'organizations'
     ];
 
     /**
