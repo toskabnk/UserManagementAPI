@@ -19,7 +19,15 @@ class Role extends Model
     ];
 
     //Relacion n:n
-    public function users(): BelongsToMany{
-        return $this->belongsToMany(User::class);
+    public function clients(): BelongsToMany{
+        return $this->belongsToMany(Client::class);
+    }
+
+    public function members(): BelongsToMany{
+        return $this->belongsToMany(Member::class);
+    }
+
+    public function organizations(): BelongsToMany{
+        return $this->belongsToMany(Organization::class);
     }
 }

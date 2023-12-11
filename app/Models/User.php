@@ -5,6 +5,7 @@ namespace App\Models;
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Passport\HasApiTokens;
@@ -19,13 +20,8 @@ class User extends Authenticatable
      * @var array<int, string>
      */
     protected $fillable = [
-        'name',
-        'surname',
-        'birth_date',
         'email',
         'password',
-        'roles',
-        'organizations',
     ];
 
     /**
@@ -49,13 +45,11 @@ class User extends Authenticatable
         'password' => 'hashed',
     ];
 
-    //Relacion n:n
-    public function roles(): BelongsToMany{
-        return $this->belongsToMany(Role::class);
+    public function client(): HasOne{
+        return $this->hasOne(Client::class);
     }
 
-    //Relacion n:n
-    public function organizations(): BelongsToMany{
-        return $this->belongsToMany(Organization::class);
+    public function member(): HasOne{
+        return $this->hasOne((Member::class));
     }
 }

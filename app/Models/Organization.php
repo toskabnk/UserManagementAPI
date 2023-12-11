@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Organization extends Model
@@ -12,8 +13,8 @@ class Organization extends Model
 
     protected $fillable = [
         'name',
-        'description'
-
+        'description',
+        'client_id'
     ];
 
     protected $hidden = [
@@ -21,7 +22,11 @@ class Organization extends Model
     ];
 
     //Relacion n:n
-    public function users(): BelongsToMany{
-        return $this->belongsToMany(User::class);
+    public function members(): BelongsToMany{
+        return $this->belongsToMany(Member::class);
+    }
+
+    public function client(): BelongsTo{
+        return $this->belongsTo(Client::class);
     }
 }

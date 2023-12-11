@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\API;
 
-use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 
 class ResponseController extends Controller
@@ -24,7 +23,7 @@ class ResponseController extends Controller
     {
         return $this->respond([
             'success' => false,
-            'error' => [
+            'data' => [
                 'message' => $message,
                 'status' => $statusCode,
                 'errors' => $errors
@@ -50,5 +49,15 @@ class ResponseController extends Controller
     protected function respondUnprocessableEntity($message = 'Unprocessable Entity', $errors = '')
     {
         return $this->respondError($message, 422, $errors);
+    }
+
+    protected function respondInternalServerError($message = 'Internal Server Error', $errors = '')
+    {
+        return $this->respondError($message, 500, $errors);
+    }
+
+    protected function respondInternalError($message = 'Internal Server Error', $errors = '')
+    {
+        return $this->respondError($message, 500, $errors);
     }
 }
